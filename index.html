@@ -15,12 +15,21 @@
   th { background: #1a5276; color: white; padding: 8px; }
   td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
   .badge-taken { background: #e74c3c; color: white; padding: 3px 8px; border-radius: 10px; font-size: 12px; }
-  .badge-free { background: #27ae60; color: white; padding: 3px 8px; border-radius: 10px; font-size: 12px; }
   .stats { display: flex; gap: 10px; justify-content: space-around; text-align: center; }
   .stat-box { background: #1a5276; color: white; padding: 12px; border-radius: 8px; flex: 1; }
   .stat-box h2 { margin: 0; font-size: 28px; }
   .stat-box p { margin: 4px 0 0; font-size: 12px; }
-  .discharge-btn { background: #e74c3c; padding: 5px 10px; font-size: 12px; width: auto; border-radius: 4px; }
+  .discharge-btn { background: #e74c3c; padding: 5px 10px; font-size: 12px; width: auto; border-radius: 4px; color: white; border: none; cursor: pointer; }
+  .search-box { display: flex; gap: 8px; }
+  .search-box input { margin: 0; }
+  .search-btn { width: auto; padding: 10px 16px; font-size: 14px; }
+  .no-result { color: #e74c3c; text-align: center; padding: 10px; }
+  .highlight { background: #fff3cd; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab { flex: 1; padding: 10px; text-align: center; border-radius: 6px; cursor: pointer; border: 2px solid #1a5276; color: #1a5276; background: white; font-weight: bold; }
+  .tab.active { background: #1a5276; color: white; }
+  .section { display: none; }
+  .section.active { display: block; }
 </style>
 </head>
 <body>
@@ -36,22 +45,42 @@
   </div>
 </div>
 
-<!-- Admit Patient -->
-<div class="card">
-  <h3>Admit Patient</h3>
-  <input type="text" id="patientName" placeholder="Patient Full Name">
-  <input type="number" id="patientAge" placeholder="Age">
-  <input type="text" id="condition" placeholder="Condition / Diagnosis">
-  <select id="ward">
-    <option value="">-- Select Ward --</option>
-    <option>General Ward</option>
-    <option>Children Ward</option>
-    <option>Maternity Ward</option>
-    <option>ICU</option>
-    <option>Male Ward</option>
-    <option>Female Ward</option>
-  </select>
-  <button onclick="admitPatient()">Admit Patient</button>
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('admit')">Admit Patient</div>
+  <div class="tab" onclick="switchTab('search')">Search Patient</div>
+</div>
+
+<!-- Admit Section -->
+<div id="admit" class="section active">
+  <div class="card">
+    <h3>Admit Patient</h3>
+    <input type="text" id="patientName" placeholder="Patient Full Name">
+    <input type="number" id="patientAge" placeholder="Age">
+    <input type="text" id="condition" placeholder="Condition / Diagnosis">
+    <select id="ward">
+      <option value="">-- Select Ward --</option>
+      <option>General Ward</option>
+      <option>Children Ward</option>
+      <option>Maternity Ward</option>
+      <option>ICU</option>
+      <option>Male Ward</option>
+      <option>Female Ward</option>
+    </select>
+    <button onclick="admitPatient()">Admit Patient</button>
+  </div>
+</div>
+
+<!-- Search Section -->
+<div id="search" class="section">
+  <div class="card">
+    <h3>Search Patient</h3>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Enter patient name or ward...">
+      <button class="search-btn" onclick="searchPatient()">Search</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
 </div>
 
 <!-- Patient List -->
@@ -59,7 +88,7 @@
   <h3>Current Patients</h3>
   <table>
     <thead>
-      <tr><th>Name</th><th>Age</th><th>Ward</th><th>Status</th><th>Action</th></tr>
+      <tr><th>Name</th><th>Age</th><th>Ward</th><th>Condition</th><th>Action</th></tr>
     </thead>
     <tbody id="patientTable">
       <tr><td colspan="5" style="color:#aaa;">No patients admitted yet</td></tr>
@@ -73,6 +102,14 @@
 
   function save() { localStorage.setItem('patients', JSON.stringify(patients)); }
 
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+    if (tab === 'search') document.getElementById('searchResults').innerHTML = '';
+  }
+
   function updateDashboard() {
     document.getElementById('totalPatients').textContent = patients.length;
     document.getElementById('takenBeds').textContent = patients.length;
@@ -83,17 +120,17 @@
     const tbody = document.getElementById('patientTable');
     if (patients.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" style="color:#aaa;">No patients admitted yet</td></tr>';
-      return;
+    } else {
+      tbody.innerHTML = patients.map((p, i) => `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.age}</td>
+          <td>${p.ward}</td>
+          <td>${p.condition}</td>
+          <td><button class="discharge-btn" onclick="discharge(${i})">Discharge</button></td>
+        </tr>
+      `).join('');
     }
-    tbody.innerHTML = patients.map((p, i) => `
-      <tr>
-        <td>${p.name}</td>
-        <td>${p.age}</td>
-        <td>${p.ward}</td>
-        <td><span class="badge-taken">Admitted</span></td>
-        <td><button class="discharge-btn" onclick="discharge(${i})">Discharge</button></td>
-      </tr>
-    `).join('');
     updateDashboard();
   }
 
@@ -102,18 +139,16 @@
     const age = document.getElementById('patientAge').value.trim();
     const condition = document.getElementById('condition').value.trim();
     const ward = document.getElementById('ward').value;
-
     if (!name || !age || !condition || !ward) { alert('Please fill in all fields.'); return; }
     if (patients.length >= TOTAL_BEDS) { alert('All beds are occupied!'); return; }
-
     patients.push({ name, age, condition, ward });
     save();
     renderTable();
-
     document.getElementById('patientName').value = '';
     document.getElementById('patientAge').value = '';
     document.getElementById('condition').value = '';
     document.getElementById('ward').value = '';
+    alert('Patient admitted successfully!');
   }
 
   function discharge(index) {
@@ -121,6 +156,37 @@
       patients.splice(index, 1);
       save();
       renderTable();
+    }
+  }
+
+  function searchPatient() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('searchResults');
+    if (!query) { resultsDiv.innerHTML = '<p class="no-result">Please enter a name or ward to search.</p>'; return; }
+    const found = patients.filter(p =>
+      p.name.toLowerCase().includes(query) ||
+      p.ward.toLowerCase().includes(query) ||
+      p.condition.toLowerCase().includes(query)
+    );
+    if (found.length === 0) {
+      resultsDiv.innerHTML = '<p class="no-result">No patient found matching that search.</p>';
+    } else {
+      resultsDiv.innerHTML = `
+        <table>
+          <thead><tr><th>Name</th><th>Age</th><th>Ward</th><th>Condition</th></tr></thead>
+          <tbody>
+            ${found.map(p => `
+              <tr class="highlight">
+                <td>${p.name}</td>
+                <td>${p.age}</td>
+                <td>${p.ward}</td>
+                <td>${p.condition}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <p style="color:#27ae60; text-align:center; margin-top:8px;">${found.length} patient(s) found</p>
+      `;
     }
   }
 
