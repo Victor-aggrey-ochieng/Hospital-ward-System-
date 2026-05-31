@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avenue Hospital Ward System</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 16px; }
+  h1 { color: #1a5276; text-align: center; }
+  .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  input, select { width: 100%; padding: 10px; margin: 6px 0 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+  button { background: #1a5276; color: white; padding: 10px 20px; border: none; border-radius: 6px; width: 100%; font-size: 16px; cursor: pointer; }
+  button:hover { background: #154360; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { background: #1a5276; color: white; padding: 8px; }
+  td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
+  .badge-taken { background: #e74c3c; color: white; padding: 3px 8px; border-radius: 10px; font-size: 12px; }
+  .badge-free { background: #27ae60; color: white; padding: 3px 8px; border-radius: 10px; font-size: 12px; }
+  .stats { display: flex; gap: 10px; justify-content: space-around; text-align: center; }
+  .stat-box { background: #1a5276; color: white; padding: 12px; border-radius: 8px; flex: 1; }
+  .stat-box h2 { margin: 0; font-size: 28px; }
+  .stat-box p { margin: 4px 0 0; font-size: 12px; }
+  .discharge-btn { background: #e74c3c; padding: 5px 10px; font-size: 12px; width: auto; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<h1>🏥 Avenue Hospital Ward System</h1>
+
+<!-- Dashboard -->
+<div class="card">
+  <div class="stats">
+    <div class="stat-box"><h2 id="totalPatients">0</h2><p>Total Patients</p></div>
+    <div class="stat-box"><h2 id="freeBeds">10</h2><p>Free Beds</p></div>
+    <div class="stat-box"><h2 id="takenBeds">0</h2><p>Occupied Beds</p></div>
+  </div>
+</div>
+
+<!-- Admit Patient -->
+<div class="card">
+  <h3>Admit Patient</h3>
+  <input type="text" id="patientName" placeholder="Patient Full Name">
+  <input type="number" id="patientAge" placeholder="Age">
+  <input type="text" id="condition" placeholder="Condition / Diagnosis">
+  <select id="ward">
+    <option value="">-- Select Ward --</option>
+    <option>General Ward</option>
+    <option>Children Ward</option>
+    <option>Maternity Ward</option>
+    <option>ICU</option>
+    <option>Male Ward</option>
+    <option>Female Ward</option>
+  </select>
+  <button onclick="admitPatient()">Admit Patient</button>
+</div>
+
+<!-- Patient List -->
+<div class="card">
+  <h3>Current Patients</h3>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Age</th><th>Ward</th><th>Status</th><th>Action</th></tr>
+    </thead>
+    <tbody id="patientTable">
+      <tr><td colspan="5" style="color:#aaa;">No patients admitted yet</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let patients = JSON.parse(localStorage.getItem('patients') || '[]');
+  const TOTAL_BEDS = 10;
+
+  function save() { localStorage.setItem('patients', JSON.stringify(patients)); }
+
+  function updateDashboard() {
+    document.getElementById('totalPatients').textContent = patients.length;
+    document.getElementById('takenBeds').textContent = patients.length;
+    document.getElementById('freeBeds').textContent = Math.max(0, TOTAL_BEDS - patients.length);
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('patientTable');
+    if (patients.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#aaa;">No patients admitted yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = patients.map((p, i) => `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.age}</td>
+        <td>${p.ward}</td>
+        <td><span class="badge-taken">Admitted</span></td>
+        <td><button class="discharge-btn" onclick="discharge(${i})">Discharge</button></td>
+      </tr>
+    `).join('');
+    updateDashboard();
+  }
+
+  function admitPatient() {
+    const name = document.getElementById('patientName').value.trim();
+    const age = document.getElementById('patientAge').value.trim();
+    const condition = document.getElementById('condition').value.trim();
+    const ward = document.getElementById('ward').value;
+
+    if (!name || !age || !condition || !ward) { alert('Please fill in all fields.'); return; }
+    if (patients.length >= TOTAL_BEDS) { alert('All beds are occupied!'); return; }
+
+    patients.push({ name, age, condition, ward });
+    save();
+    renderTable();
+
+    document.getElementById('patientName').value = '';
+    document.getElementById('patientAge').value = '';
+    document.getElementById('condition').value = '';
+    document.getElementById('ward').value = '';
+  }
+
+  function discharge(index) {
+    if (confirm(`Discharge ${patients[index].name}?`)) {
+      patients.splice(index, 1);
+      save();
+      renderTable();
+    }
+  }
+
+  renderTable();
+  updateDashboard();
+</script>
+</body>
+</html>
